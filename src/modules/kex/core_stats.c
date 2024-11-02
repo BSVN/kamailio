@@ -27,6 +27,7 @@
 
 
 #include <string.h>
+#include <stdio.h> // Include standard I/O for logging with printf
 
 #include "../../core/counters.h"
 #include "../../core/events.h"
@@ -39,7 +40,7 @@
 #include "../../core/rpc.h"
 #include "../../core/rpc_lookup.h"
 
-
+#define STATISTICS
 #ifdef STATISTICS
 
 stat_var *rcv_reqs;			   /*!< received requests        */
@@ -74,11 +75,34 @@ stat_var *rcv_rpls_18x;
 stat_var *rcv_rpls_2xx;
 stat_var *rcv_rpls_3xx;
 stat_var *rcv_rpls_4xx;
+stat_var *rcv_rpls_400;
 stat_var *rcv_rpls_401;
+stat_var *rcv_rpls_402;
+stat_var *rcv_rpls_403;
 stat_var *rcv_rpls_404;
+stat_var *rcv_rpls_405;
+stat_var *rcv_rpls_406;
 stat_var *rcv_rpls_407;
+stat_var *rcv_rpls_408;
+stat_var *rcv_rpls_409;
+stat_var *rcv_rpls_410;
+stat_var *rcv_rpls_411;
+stat_var *rcv_rpls_413;
+stat_var *rcv_rpls_414;
+stat_var *rcv_rpls_415;
+stat_var *rcv_rpls_420;
 stat_var *rcv_rpls_480;
+stat_var *rcv_rpls_481;
+stat_var *rcv_rpls_482;
+stat_var *rcv_rpls_483;
+stat_var *rcv_rpls_484;
+stat_var *rcv_rpls_485;
 stat_var *rcv_rpls_486;
+stat_var *rcv_rpls_487;
+stat_var *rcv_rpls_488;
+stat_var *rcv_rpls_489;
+stat_var *rcv_rpls_491;
+stat_var *rcv_rpls_493;
 stat_var *rcv_rpls_5xx;
 stat_var *rcv_rpls_6xx;
 
@@ -128,11 +152,34 @@ stat_export_t core_stats[] = {{"rcv_requests", 0, &rcv_reqs},
 		{"rcv_replies_2xx", 0, &rcv_rpls_2xx},
 		{"rcv_replies_3xx", 0, &rcv_rpls_3xx},
 		{"rcv_replies_4xx", 0, &rcv_rpls_4xx},
+		{"rcv_replies_400", 0, &rcv_rpls_400},
 		{"rcv_replies_401", 0, &rcv_rpls_401},
+		{"rcv_replies_402", 0, &rcv_rpls_402},
+		{"rcv_replies_403", 0, &rcv_rpls_403},
 		{"rcv_replies_404", 0, &rcv_rpls_404},
+		{"rcv_replies_405", 0, &rcv_rpls_405},
+		{"rcv_replies_406", 0, &rcv_rpls_406},
 		{"rcv_replies_407", 0, &rcv_rpls_407},
+		{"rcv_replies_408", 0, &rcv_rpls_408},
+		{"rcv_replies_409", 0, &rcv_rpls_409},
+		{"rcv_replies_410", 0, &rcv_rpls_410},
+		{"rcv_replies_411", 0, &rcv_rpls_411},
+		{"rcv_replies_413", 0, &rcv_rpls_413},
+		{"rcv_replies_414", 0, &rcv_rpls_414},
+		{"rcv_replies_415", 0, &rcv_rpls_415},
+		{"rcv_replies_420", 0, &rcv_rpls_420},
 		{"rcv_replies_480", 0, &rcv_rpls_480},
+		{"rcv_replies_481", 0, &rcv_rpls_481},
+		{"rcv_replies_482", 0, &rcv_rpls_482},
+		{"rcv_replies_483", 0, &rcv_rpls_483},
+		{"rcv_replies_484", 0, &rcv_rpls_484},
+		{"rcv_replies_485", 0, &rcv_rpls_485},
 		{"rcv_replies_486", 0, &rcv_rpls_486},
+		{"rcv_replies_487", 0, &rcv_rpls_487},
+		{"rcv_replies_488", 0, &rcv_rpls_488},
+		{"rcv_replies_489", 0, &rcv_rpls_489},
+		{"rcv_replies_491", 0, &rcv_rpls_491},
+		{"rcv_replies_493", 0, &rcv_rpls_493},
 		{"rcv_replies_5xx", 0, &rcv_rpls_5xx},
 		{"rcv_replies_6xx", 0, &rcv_rpls_6xx}, {"fwd_requests", 0, &fwd_reqs},
 		{"fwd_replies", 0, &fwd_rpls}, {"drop_requests", 0, &drp_reqs},
@@ -265,51 +312,161 @@ static int km_cb_rpl_stats_by_method(
 	return 1;
 }
 
+#include <stdio.h> // Include standard I/O for logging with printf
+
 static int km_cb_rpl_stats(struct sip_msg *msg, unsigned int flags, void *param)
 {
-	update_stat(rcv_rpls, 1);
-	if(msg->first_line.u.reply.statuscode > 99
-			&& msg->first_line.u.reply.statuscode < 200) {
-		update_stat(rcv_rpls_1xx, 1);
-		if(msg->first_line.u.reply.statuscode > 179
-				&& msg->first_line.u.reply.statuscode < 190) {
-			update_stat(rcv_rpls_18x, 1);
-		}
-	} else if(msg->first_line.u.reply.statuscode > 199
-			  && msg->first_line.u.reply.statuscode < 300) {
-		update_stat(rcv_rpls_2xx, 1);
-	} else if(msg->first_line.u.reply.statuscode > 299
-			  && msg->first_line.u.reply.statuscode < 400) {
-		update_stat(rcv_rpls_3xx, 1);
-	} else if(msg->first_line.u.reply.statuscode > 399
-			  && msg->first_line.u.reply.statuscode < 500) {
-		update_stat(rcv_rpls_4xx, 1);
-		switch(msg->first_line.u.reply.statuscode) {
-			case 401:
-				update_stat(rcv_rpls_401, 1);
-				break;
-			case 404:
-				update_stat(rcv_rpls_404, 1);
-				break;
-			case 407:
-				update_stat(rcv_rpls_407, 1);
-				break;
-			case 480:
-				update_stat(rcv_rpls_480, 1);
-				break;
-			case 486:
-				update_stat(rcv_rpls_486, 1);
-				break;
-		}
-	} else if(msg->first_line.u.reply.statuscode > 499
-			  && msg->first_line.u.reply.statuscode < 600) {
-		update_stat(rcv_rpls_5xx, 1);
-	} else if(msg->first_line.u.reply.statuscode > 599
-			  && msg->first_line.u.reply.statuscode < 700) {
-		update_stat(rcv_rpls_6xx, 1);
-	}
-	return 1;
+    LM_WARN("Received reply with status code: %d\n", msg->first_line.u.reply.statuscode);
+
+    update_stat(rcv_rpls, 1);
+
+    if(msg->first_line.u.reply.statuscode > 99 && msg->first_line.u.reply.statuscode < 200) {
+        update_stat(rcv_rpls_1xx, 1);
+        LM_WARN("Status code is in 1xx range.\n");
+
+        if(msg->first_line.u.reply.statuscode > 179 && msg->first_line.u.reply.statuscode < 190) {
+            update_stat(rcv_rpls_18x, 1);
+            LM_WARN("Status code is in 18x range.\n");
+        }
+
+    } else if(msg->first_line.u.reply.statuscode > 199 && msg->first_line.u.reply.statuscode < 300) {
+        update_stat(rcv_rpls_2xx, 1);
+        LM_WARN("Status code is in 2xx range.\n");
+
+    } else if(msg->first_line.u.reply.statuscode > 299 && msg->first_line.u.reply.statuscode < 400) {
+        update_stat(rcv_rpls_3xx, 1);
+        LM_WARN("Status code is in 3xx range.\n");
+
+    } else if(msg->first_line.u.reply.statuscode > 399 && msg->first_line.u.reply.statuscode < 500) {
+        update_stat(rcv_rpls_4xx, 1);
+        LM_WARN("Status code is in 4xx range.\n");
+
+        switch(msg->first_line.u.reply.statuscode) {
+            case 401:
+                update_stat(rcv_rpls_401, 1);
+                LM_WARN("Status code is 401 (Unauthorized).\n");
+                break;
+			case 402:
+                update_stat(rcv_rpls_402, 1);
+                LM_WARN("Status code is 402 (Payment Required).\n");
+                break;
+			case 403:
+                update_stat(rcv_rpls_403, 1);
+                LM_WARN("Status code is 403 (Forbidden).\n");
+                break;
+            case 404:
+                update_stat(rcv_rpls_404, 1);
+                LM_WARN("Status code is 404 (Not Found).\n");
+                break;
+			case 405:
+                update_stat(rcv_rpls_405, 1);
+                LM_WARN("Status code is 405 (Method Not Allowed).\n");
+                break;
+			case 406:
+                update_stat(rcv_rpls_406, 1);
+                LM_WARN("Status code is 406 (Not Acceptable).\n");
+                break;
+            case 407:
+                update_stat(rcv_rpls_407, 1);
+                LM_WARN("Status code is 407 (Proxy Authentication Required).\n");
+                break;
+			case 408:
+                update_stat(rcv_rpls_408, 1);
+                LM_WARN("Status code is 408 (Request Timeout).\n");
+                break;
+			case 409:
+                update_stat(rcv_rpls_409, 1);
+                LM_WARN("Status code is 409 (Conflict).\n");
+                break;
+			case 410:
+                update_stat(rcv_rpls_410, 1);
+                LM_WARN("Status code is 410 (Gone).\n");
+                break;
+			case 411:
+                update_stat(rcv_rpls_411, 1);
+                LM_WARN("Status code is 411 (Length Required).\n");
+                break;
+			case 413:
+                update_stat(rcv_rpls_413, 1);
+                LM_WARN("Status code is 413 (Request Entity Too Large).\n");
+                break;
+			case 414:
+                update_stat(rcv_rpls_414, 1);
+                LM_WARN("Status code is 414 (Request-URI Too Large).\n");
+                break;
+			case 415:
+                update_stat(rcv_rpls_415, 1);
+                LM_WARN("Status code is 415 (Unsupported Media Type).\n");
+                break;
+			case 420:
+                update_stat(rcv_rpls_420, 1);
+                LM_WARN("Status code is 420 (Bad Extension).\n");
+                break;
+            case 480:
+                update_stat(rcv_rpls_480, 1);
+                LM_WARN("Status code is 480 (Temporarily Unavailable).\n");
+                break;
+			case 481:
+                update_stat(rcv_rpls_481, 1);
+                LM_WARN("Status code is 481 (Call Leg/Transaction does not exist).\n");
+                break;
+			case 482:
+                update_stat(rcv_rpls_482, 1);
+                LM_WARN("Status code is 482 (Loop Detected).\n");
+                break;
+			case 483:
+                update_stat(rcv_rpls_483, 1);
+                LM_WARN("Status code is 483 (Too Many Hops).\n");
+                break;
+			case 484:
+                update_stat(rcv_rpls_484, 1);
+                LM_WARN("Status code is 484 (Address Incomplete).\n");
+                break;
+			case 485:
+                update_stat(rcv_rpls_485, 1);
+                LM_WARN("Status code is 485 (Ambiguous).\n");
+                break;
+            case 486:
+                update_stat(rcv_rpls_486, 1);
+                LM_WARN("Status code is 486 (Busy Here).\n");
+                break;
+            case 487:
+                update_stat(rcv_rpls_487, 1);
+                LM_WARN("Status code is 487 (Request Terminated).\n");
+                break;
+			case 488:
+                update_stat(rcv_rpls_488, 1);
+                LM_WARN("Status code is 488 (Not Acceptable Here).\n");
+                break;
+			case 489:
+                update_stat(rcv_rpls_489, 1);
+                LM_WARN("Status code is 489 (Bad Event).\n");
+                break;
+			case 491:
+                update_stat(rcv_rpls_491, 1);
+                LM_WARN("Status code is 491 (Request Pending).\n");
+                break;
+			case 493:
+                update_stat(rcv_rpls_493, 1);
+                LM_WARN("Status code is 493 (Undecipherable).\n");
+                break;
+            default:
+                LM_WARN("Status code is another 4xx: %d\n", msg->first_line.u.reply.statuscode);
+                break;
+        }
+
+    } else if(msg->first_line.u.reply.statuscode > 499 && msg->first_line.u.reply.statuscode < 600) {
+        update_stat(rcv_rpls_5xx, 1);
+        LM_WARN("Status code is in 5xx range.\n");
+
+    } else if(msg->first_line.u.reply.statuscode > 599 && msg->first_line.u.reply.statuscode < 700) {
+        update_stat(rcv_rpls_6xx, 1);
+        LM_WARN("Status code is in 6xx range.\n");
+    }
+
+    return 1;
 }
+
 
 
 static int sts_update_core_stats(sr_event_param_t *evp)

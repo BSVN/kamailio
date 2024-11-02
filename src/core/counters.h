@@ -147,6 +147,7 @@ void counter_iterate_grp_vars(const char *group,
 #define STAT_IS_FUNC 8
 
 
+#define STATISTICS
 #ifdef STATISTICS
 
 /* statistics support check */
