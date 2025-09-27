@@ -149,6 +149,9 @@ void i_lock(unsigned int hash);
 void i_unlock(unsigned int hash);
 int I_scscf_select(struct sip_msg *msg, char *str1, char *str2);
 
+int I_scscf_next(struct sip_msg *msg, char *str1, char *str2);
+int skip_scscf(str call_id);
+
 /**
  * Takes on S-CSCF name for the respective Call-ID from the respective name list.
  * Don't free the result.s - it is freed later!

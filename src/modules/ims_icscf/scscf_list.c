@@ -535,6 +535,58 @@ int I_scscf_drop(struct sip_msg *msg, char *str1, char *str2)
 	return CSCF_RETURN_TRUE;
 }
 
+int I_scscf_next(struct sip_msg *msg, char *str1, char *str2)
+{
+	str call_id;
+	call_id = cscf_get_call_id(msg, 0);
+	LM_DBG("DBG:I_scscf_next(): <%.*s>\n", call_id.len, call_id.s);
+	if(!call_id.len)
+		return CSCF_RETURN_FALSE;
+
+	int rv = skip_scscf(call_id);
+	return rv;
+}
+
+int skip_scscf(str call_id)
+{
+	int rv = CSCF_RETURN_FALSE;
+
+	scscf_list *l = 0;
+	scscf_entry *scscf_entry = 0;
+	unsigned int hash = get_call_id_hash(call_id, i_hash_size);
+
+	i_lock(hash);
+	l = i_hash_table[hash].head;
+	while(l) {
+		if(l->call_id.len == call_id.len
+				&& strncasecmp(l->call_id.s, call_id.s, call_id.len) == 0) {
+			scscf_entry = l->list;
+			if(!scscf_entry->next) {
+				// there is no next
+				rv = CSCF_RETURN_FALSE;
+				goto done;
+			}
+
+			// as we alwasys use top of list, next means ...
+			// jump
+			l->list = scscf_entry->next;
+
+			// free (former)top entry
+			if(scscf_entry->scscf_name.s) {
+				shm_free(scscf_entry->scscf_name.s);
+			}
+			shm_free(scscf_entry);
+			rv = CSCF_RETURN_TRUE;
+			goto done;
+		}
+		l = l->next;
+	}
+
+done:
+	i_unlock(hash);
+	return rv;
+}
+
 void del_scscf_list(str call_id)
 {
 	scscf_list *l = 0;

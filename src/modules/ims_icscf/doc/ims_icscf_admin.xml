@@ -475,6 +475,24 @@ route[SESSION_LIR_REPLY]
         </programlisting>
       </example>
     </section>
+    <section>
+      <title><function moreinfo="none">I_scscf_next()</function></title>
+
+      <para>If there is more than one entry in the list of SCSCFs drop the top entry.</para>
+
+      <para>It returns true(1) if there is another SCSCF entry; otherwise false(-1).</para>
+
+      <para>This function can be used from FAILURE_ROUTE | REPLY_ROUTE.</para>
+
+      <example>
+        <title><function moreinfo="none">I_scscf_next</function> usage</title>
+
+        <programlisting format="linespecific">...
+I_scscf_next();
+...
+</programlisting>
+      </example>
+    </section>
   </section>
 
   <section>
