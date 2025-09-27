@@ -128,6 +128,7 @@ static cmd_export_t cmds[] = {
 		0, 0, REQUEST_ROUTE | FAILURE_ROUTE},
 	{"I_scscf_drop", (cmd_function)I_scscf_drop, 0,
 		0, 0, REQUEST_ROUTE | ONREPLY_ROUTE | FAILURE_ROUTE},
+		{"I_scscf_next", (cmd_function)I_scscf_next, 0, 0, 0, ONREPLY_ROUTE | FAILURE_ROUTE},
 	{0, 0, 0, 0, 0, 0}
 };
 
