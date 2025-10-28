@@ -117,6 +117,7 @@ MODULE_VERSION
 #define DEFAULT_RTPP_SET_ID 0
 
 #define RTPENGINE_DTMF_EVENT_BUFFER 32768
+#define RTPENGINE_TIMEOUT_EVENT_BUFFER 32768
 
 /* clang-format off */
 enum {
@@ -299,6 +300,7 @@ static char *send_rtpp_command(struct rtpp_node *, bencode_item_t *, int *);
 static int get_extra_id(struct sip_msg *msg, str *id_str);
 
 static int rtpengine_set_store(modparam_t type, void *val);
+static int rtpengine_set_timeout_events_sock(modparam_t type, void *val);
 static int rtpengine_set_dtmf_events_sock(modparam_t type, void *val);
 static int rtpengine_add_rtpengine_set(char *rtp_proxies, unsigned int weight,
 		int disabled, unsigned int ticks);
@@ -314,6 +316,9 @@ static int bind_force_send_ip(int sock_idx);
 static int add_rtpp_node_info(
 		void *ptrs, struct rtpp_node *crt_rtpp, struct rtpp_set *rtpp_list);
 static int rtpp_test_ping(struct rtpp_node *node);
+
+static void rtpengine_timeout_events_loop(void);
+static int rtpengine_raise_timeout_event(char *buffer, int len);
 
 static void rtpengine_dtmf_events_loop(void);
 static int rtpengine_raise_dtmf_event(char *buffer, int len);
@@ -371,11 +376,17 @@ static pv_spec_t *read_sdp_pvar = NULL;
 static str media_duration_pvar_str = {NULL, 0};
 static pv_spec_t *media_duration_pvar = NULL;
 
+static str timeout_event_callid_pvar_str = {NULL, 0};
+static pv_spec_t *timeout_event_callid_pvar = NULL;
+
 static str dtmf_event_callid_pvar_str = {NULL, 0};
 static pv_spec_t *dtmf_event_callid_pvar = NULL;
 
 static str dtmf_event_source_tag_pvar_str = {NULL, 0};
 static pv_spec_t *dtmf_event_source_tag_pvar = NULL;
+
+static str timeout_event_timestamp_pvar_str = {NULL, 0};
+static pv_spec_t *timeout_event_timestamp_pvar = NULL;
 
 static str dtmf_event_timestamp_pvar_str = {NULL, 0};
 static pv_spec_t *dtmf_event_timestamp_pvar = NULL;
@@ -391,6 +402,15 @@ static pv_spec_t *dtmf_event_tags_pvar = NULL;
 
 static str dtmf_event_type_pvar_str = {NULL, 0};
 static pv_spec_t *dtmf_event_type_pvar = NULL;
+
+static str timeout_event_source_ip_pvar_str = {NULL, 0};
+static pv_spec_t *timeout_event_source_ip_pvar = NULL;
+
+static str timeout_event_src_tag_pvar_str = {NULL, 0};
+static pv_spec_t *timeout_event_src_tag_pvar = NULL;
+
+static str timeout_event_dst_tags_pvar_str = {NULL, 0};
+static pv_spec_t *timeout_event_dst_tags_pvar = NULL;
 
 static str dtmf_event_source_ip_pvar_str = {NULL, 0};
 static pv_spec_t *dtmf_event_source_ip_pvar = NULL;
@@ -421,6 +441,9 @@ static enum hash_algo_t hash_algo = RTP_HASH_CALLID;
 static str rtpengine_dtmf_event_sock;
 static int rtpengine_dtmf_event_fd;
 int dtmf_event_rt = -1; /* default disabled */
+static str rtpengine_timeout_event_sock;
+static int rtpengine_timeout_event_fd;
+int timeout_event_rt = -1; /* default disabled */
 static int rtpengine_ping_mode = 1;
 static int rtpengine_ping_interval = 60;
 static int rtpengine_enable_dmq = 0;
@@ -582,8 +605,15 @@ static param_export_t params[] = {
 	{"setid_default", PARAM_INT, &setid_default},
 	{"media_duration", PARAM_STR, &media_duration_pvar_str},
 	{"hash_algo", PARAM_INT, &hash_algo},
+	{"timeout_events_sock", PARAM_STRING | PARAM_USE_FUNC,
+			(void *)rtpengine_set_timeout_events_sock},
 	{"dtmf_events_sock", PARAM_STRING | PARAM_USE_FUNC,
 			(void *)rtpengine_set_dtmf_events_sock},
+	{"timeout_event_callid", PARAM_STR, &timeout_event_callid_pvar_str},
+	{"timeout_event_timestamp", PARAM_STR, &timeout_event_timestamp_pvar_str},
+	{"timeout_event_source_ip", PARAM_STR, &timeout_event_source_ip_pvar_str},
+	{"timeout_event_src_tag", PARAM_STR, &timeout_event_src_tag_pvar_str},
+	{"timeout_event_dst_tags", PARAM_STR, &timeout_event_dst_tags_pvar_str},
 	{"dtmf_event_callid", PARAM_STR, &dtmf_event_callid_pvar_str},
 	{"dtmf_event_source_tag", PARAM_STR, &dtmf_event_source_tag_pvar_str},
 	{"dtmf_event_timestamp", PARAM_STR, &dtmf_event_timestamp_pvar_str},
@@ -1519,6 +1549,21 @@ error:
 	return -1;
 }
 
+static int rtpengine_set_timeout_events_sock(modparam_t type, void *val)
+{
+	char *p;
+	p = (char *)val;
+
+	if(p == 0 || *p == '\0') {
+		return 0;
+	}
+
+	rtpengine_timeout_event_sock.s = p;
+	rtpengine_timeout_event_sock.len = strlen(rtpengine_timeout_event_sock.s);
+
+	return 0;
+}
+
 static int rtpengine_set_dtmf_events_sock(modparam_t type, void *val)
 {
 	char *p;
@@ -1532,6 +1577,119 @@ static int rtpengine_set_dtmf_events_sock(modparam_t type, void *val)
 	rtpengine_dtmf_event_sock.len = strlen(rtpengine_dtmf_event_sock.s);
 
 	return 0;
+}
+
+/**
+ * timeout events loop
+ */
+static void rtpengine_timeout_events_loop(void)
+{
+	LM_ERR("rtpengine_timeout_events_loop!!\n");
+	int ret;
+	char *p;
+	str s_port;
+	unsigned int port;
+	unsigned int socket_len;
+	union sockaddr_union udp_addr;
+	char buffer[RTPENGINE_TIMEOUT_EVENT_BUFFER];
+
+	p = q_memchr(
+			rtpengine_timeout_event_sock.s, ':', rtpengine_timeout_event_sock.len);
+
+	if(!p) {
+		LM_ERR("failed to initialize timeout event listener because no port was "
+			   "specified %.*s!\n",
+				rtpengine_timeout_event_sock.len, rtpengine_timeout_event_sock.s);
+		return;
+	}
+
+	s_port.s = p + 1;
+	s_port.len = rtpengine_timeout_event_sock.s + rtpengine_timeout_event_sock.len
+				 - s_port.s;
+
+	if(s_port.len <= 0 || str2int(&s_port, &port) < 0 || port > 65535) {
+		LM_ERR("failed to initialize timeout event listener because port is "
+			   "invalid %.*s\n",
+				rtpengine_timeout_event_sock.len, rtpengine_timeout_event_sock.s);
+		return;
+	}
+	rtpengine_timeout_event_sock.len -= s_port.len + 1;
+	trim(&rtpengine_timeout_event_sock);
+	rtpengine_timeout_event_sock.s[rtpengine_timeout_event_sock.len] = '\0';
+
+	memset(&udp_addr, 0, sizeof(union sockaddr_union));
+
+	if(rtpengine_timeout_event_sock.s[0] == '[') {
+		udp_addr.sin6.sin6_family = AF_INET6;
+		udp_addr.sin6.sin6_port = htons(port);
+		socket_len = sizeof(struct sockaddr_in6);
+		ret = inet_pton(AF_INET6, rtpengine_timeout_event_sock.s,
+				&udp_addr.sin6.sin6_addr);
+	} else {
+		udp_addr.sin.sin_family = AF_INET;
+		udp_addr.sin.sin_port = htons(port);
+		socket_len = sizeof(struct sockaddr_in);
+		ret = inet_pton(
+				AF_INET, rtpengine_timeout_event_sock.s, &udp_addr.sin.sin_addr);
+	}
+
+	if(ret != 1) {
+		LM_ERR("failed to initialize timeout event listener because address could "
+			   "not be created for %s\n",
+				rtpengine_timeout_event_sock.s);
+		return;
+	}
+
+	rtpengine_timeout_event_fd = socket(udp_addr.s.sa_family, SOCK_DGRAM, 0);
+
+	if(rtpengine_timeout_event_fd < 0) {
+		LM_ERR("can't create socket\n");
+		return;
+	}
+
+	if(bind(rtpengine_timeout_event_fd, &udp_addr.s, socket_len) < 0) {
+		LM_ERR("could not bind timeout events socket %s:%u (%s:%d)\n",
+				rtpengine_timeout_event_sock.s, port, strerror(errno), errno);
+		goto end;
+	}
+	LM_INFO("timeout event listener started on %s:%u\n",
+			rtpengine_timeout_event_sock.s, port);
+
+	for(;;) {
+		do
+			ret = read(rtpengine_timeout_event_fd, buffer,
+					RTPENGINE_TIMEOUT_EVENT_BUFFER);
+		while(ret == -1 && errno == EINTR);
+
+		if(ret < 0) {
+			LM_ERR("problem reading on socket %s:%u (%s:%d)\n",
+					rtpengine_timeout_event_sock.s, port, strerror(errno), errno);
+			goto end;
+		}
+
+		if(rtpe_event_callback.s == NULL || rtpe_event_callback.len <= 0) {
+			if(timeout_event_rt == -1) {
+				LM_NOTICE("nothing to do - nobody is listening!\n");
+				goto end;
+			}
+		}
+
+		p = shm_malloc(ret + 1);
+		if(!p) {
+			LM_ERR("could not allocate %d for buffer %.*s\n", ret, ret, buffer);
+			goto end;
+		}
+		memcpy(p, buffer, ret);
+		p[ret] = '\0';
+
+		if(rtpengine_raise_timeout_event(p, ret) < 0) {
+			LM_ERR("Failed to raise timeout event\n");
+		}
+		shm_free(p);
+	}
+
+end:
+	close(rtpengine_timeout_event_fd);
 }
 
 /**
@@ -1644,6 +1802,150 @@ static void rtpengine_dtmf_events_loop(void)
 
 end:
 	close(rtpengine_dtmf_event_fd);
+}
+
+/**
+ * Raise timeout event
+ */
+static int rtpengine_raise_timeout_event(char *buffer, int len)
+{
+	srjson_doc_t jdoc;
+	srjson_t *it = NULL;
+	struct sip_msg *fmsg = NULL;
+	struct run_act_ctx ctx;
+	int rtb;
+
+	sr_kemi_eng_t *keng = NULL;
+
+	LM_DBG("executing event_route[rtpengine:timeout-event] (%d)\n", timeout_event_rt);
+	LM_DBG("dispatching buffer: %s\n", buffer);
+
+	srjson_InitDoc(&jdoc, NULL);
+
+	jdoc.buf.s = buffer;
+	jdoc.buf.len = len;
+
+	jdoc.root = srjson_Parse(&jdoc, jdoc.buf.s);
+	if(jdoc.root == NULL) {
+		LM_ERR("invalid json doc [[%s]]\n", jdoc.buf.s);
+		goto error;
+	}
+
+	if(faked_msg_init() < 0) {
+		LM_ERR("Failed to initialize fake msg\n");
+		goto error;
+	}
+
+	/* iterate over keys */
+	for(it = jdoc.root->child; it; it = it->next) {
+		LM_DBG("found field: %s\n", it->string);
+		if(strcmp(it->string, "callid") == 0) {
+			pv_value_t pv_val;
+			pv_val.rs.s = it->valuestring;
+			pv_val.rs.len = strlen(it->valuestring);
+			pv_val.flags = PV_VAL_STR;
+
+			if(timeout_event_callid_pvar->setf(
+					   0, &timeout_event_callid_pvar->pvp, (int)EQ_T, &pv_val)
+					< 0) {
+				LM_ERR("error setting pvar <%.*s>\n",
+						timeout_event_callid_pvar_str.len,
+						timeout_event_callid_pvar_str.s);
+				goto error;
+			}
+		} else if(strcmp(it->string, "timestamp") == 0) {
+			pv_value_t pv_val;
+			int_str val = {0};
+			char intbuf[32];
+			snprintf(intbuf, sizeof(intbuf), "%lld", SRJSON_GET_LLONG(it));
+			memset(&val, 0, sizeof(val));
+
+			pv_val.rs.s = intbuf;
+			pv_val.rs.len = strlen(intbuf);
+			pv_val.flags = PV_VAL_STR;
+
+			if(timeout_event_timestamp_pvar->setf(
+					   0, &timeout_event_timestamp_pvar->pvp, (int)EQ_T, &pv_val)
+					< 0) {
+				LM_ERR("error setting pvar <%.*s>\n",
+						timeout_event_timestamp_pvar_str.len,
+						timeout_event_timestamp_pvar_str.s);
+				goto error;
+			}
+		} else if(strcmp(it->string, "source_ip") == 0) {
+			pv_value_t pv_val;
+			pv_val.rs.s = it->valuestring;
+			pv_val.rs.len = strlen(it->valuestring);
+			pv_val.flags = PV_VAL_STR;
+
+			if(timeout_event_source_ip_pvar->setf(
+					   0, &timeout_event_source_ip_pvar->pvp, (int)EQ_T, &pv_val)
+					< 0) {
+				LM_ERR("error setting pvar <%.*s>\n",
+						timeout_event_source_ip_pvar_str.len,
+						timeout_event_source_ip_pvar_str.s);
+				goto error;
+			}
+	} else if(strcmp(it->string, "dst_tags") == 0) {
+		if(it->type==srjson_Array){
+			pv_value_t pv_val;
+			pv_val.rs.s = srjson_Print(&jdoc, it);
+			pv_val.rs.len = strlen(pv_val.rs.s);
+			pv_val.flags = PV_VAL_STR;
+
+			if(timeout_event_dst_tags_pvar->setf(
+						0, &timeout_event_dst_tags_pvar->pvp, (int)EQ_T, &pv_val)
+						< 0) {
+					LM_ERR("error setting pvar <%.*s>\n",
+							timeout_event_dst_tags_pvar_str.len,
+							timeout_event_dst_tags_pvar_str.s);
+					goto error;
+				}
+		}else{
+			LM_ERR("dst_tags should be an array!\n");
+					goto error;
+		}
+
+	}else if(strcmp(it->string, "src_tag") == 0) {
+
+		pv_value_t pv_val;
+		pv_val.rs.s = it->valuestring;
+		pv_val.rs.len = strlen(it->valuestring);
+		pv_val.flags = PV_VAL_STR;
+
+		if(timeout_event_src_tag_pvar->setf(
+					   0, &timeout_event_src_tag_pvar->pvp, (int)EQ_T, &pv_val)
+					< 0) {
+				LM_ERR("error setting pvar <%.*s>\n",
+						timeout_event_src_tag_pvar_str.len,
+						timeout_event_src_tag_pvar_str.s);
+				goto error;
+			}
+
+	}
+}
+
+	fmsg = faked_msg_next();
+	rtb = get_route_type();
+	str evname = str_init("rtpengine:timeout-event");
+	set_route_type(REQUEST_ROUTE);
+	init_run_actions_ctx(&ctx);
+	if(rtpe_event_callback.s == NULL || rtpe_event_callback.len <= 0) {
+		run_top_route(event_rt.rlist[timeout_event_rt], fmsg, &ctx);
+	}
+	set_route_type(rtb);
+	if(ctx.run_flags & DROP_R_F) {
+		LM_ERR("exit due to 'drop' in event route\n");
+		goto error;
+	}
+
+	srjson_DestroyDoc(&jdoc);
+
+	return 0;
+
+error:
+	srjson_DestroyDoc(&jdoc);
+	return -1;
 }
 
 /**
@@ -2604,12 +2906,90 @@ static int mod_init(void)
 		register_timer(rtpengine_ping_check_timer, 0, rtpengine_ping_interval);
 	}
 
+	timeout_event_rt = route_lookup(&event_rt, "rtpengine:timeout-event");
+
+	if(rtpe_event_callback.s == NULL || rtpe_event_callback.len <= 0) {
+		if(timeout_event_rt >= 0 && event_rt.rlist[timeout_event_rt] == 0) {
+			timeout_event_rt = -1; /* disable */
+			return 0;
+		}
+	}
+
 	dtmf_event_rt = route_lookup(&event_rt, "rtpengine:dtmf-event");
 
 	if(rtpe_event_callback.s == NULL || rtpe_event_callback.len <= 0) {
 		if(dtmf_event_rt >= 0 && event_rt.rlist[dtmf_event_rt] == 0) {
 			dtmf_event_rt = -1; /* disable */
 			return 0;
+		}
+	}
+
+	if(timeout_event_callid_pvar_str .len > 0) {
+		timeout_event_callid_pvar = pv_cache_get(&timeout_event_callid_pvar_str );
+		if(timeout_event_callid_pvar == NULL
+				|| (timeout_event_callid_pvar->type != PVT_AVP
+						&& timeout_event_callid_pvar->type != PVT_SCRIPTVAR)) {
+			LM_ERR("timeout_event_callid_pv: not a valid AVP or VAR "
+				   "definition <%.*s>\n",
+					timeout_event_callid_pvar_str .len,
+					timeout_event_callid_pvar_str .s);
+			return -1;
+		}
+	}
+
+	if(timeout_event_timestamp_pvar_str.len > 0) {
+		timeout_event_timestamp_pvar =
+				pv_cache_get(&timeout_event_timestamp_pvar_str );
+		if(timeout_event_timestamp_pvar == NULL
+				|| (timeout_event_timestamp_pvar->type != PVT_AVP
+						&& timeout_event_timestamp_pvar->type != PVT_SCRIPTVAR)) {
+			LM_ERR("timeout_event_timestamp_pv: not a valid AVP or VAR "
+				   "definition <%.*s>\n",
+					timeout_event_timestamp_pvar_str.len,
+					timeout_event_timestamp_pvar_str.s);
+			return -1;
+		}
+	}
+
+	if(timeout_event_source_ip_pvar_str.len > 0) {
+		timeout_event_source_ip_pvar =
+				pv_cache_get(&timeout_event_source_ip_pvar_str);
+		if(timeout_event_source_ip_pvar == NULL
+				|| (timeout_event_source_ip_pvar->type != PVT_AVP
+						&& timeout_event_source_ip_pvar->type != PVT_SCRIPTVAR)) {
+			LM_ERR("timeout_event_source_ip_pv: not a valid AVP or VAR "
+				   "definition <%.*s>\n",
+					timeout_event_source_ip_pvar_str.len,
+					timeout_event_source_ip_pvar_str.s);
+			return -1;
+		}
+	}
+
+	if(timeout_event_src_tag_pvar_str.len > 0) {
+		timeout_event_src_tag_pvar =
+				pv_cache_get(&timeout_event_src_tag_pvar_str);
+		if(timeout_event_src_tag_pvar == NULL
+				|| (timeout_event_src_tag_pvar->type != PVT_AVP
+						&& timeout_event_src_tag_pvar->type != PVT_SCRIPTVAR)) {
+			LM_ERR("timeout_event_src_tag_pv: not a valid AVP or VAR "
+				   "definition <%.*s>\n",
+					timeout_event_src_tag_pvar_str.len,
+					timeout_event_src_tag_pvar_str.s);
+			return -1;
+		}
+	}
+
+	if(timeout_event_dst_tags_pvar_str.len > 0) {
+		timeout_event_dst_tags_pvar =
+				pv_cache_get(&timeout_event_dst_tags_pvar_str);
+		if(timeout_event_dst_tags_pvar == NULL
+				|| (timeout_event_dst_tags_pvar->type != PVT_AVP
+						&& timeout_event_dst_tags_pvar->type != PVT_SCRIPTVAR)) {
+			LM_ERR("timeout_event_dst_tags_pv: not a valid AVP or VAR "
+				   "definition <%.*s>\n",
+					timeout_event_dst_tags_pvar_str.len,
+					timeout_event_dst_tags_pvar_str.s);
+			return -1;
 		}
 	}
 
@@ -3036,6 +3416,7 @@ static int child_init(int rank)
 	}
 
 	if(rank == PROC_MAIN) {
+		int early_return = 0;		
 		if(rtpengine_dtmf_event_sock.len > 0) {
 			LM_DBG("Register RTPENGINE DTMF WORKER %d\n", getpid());
 			/* fork worker process */
@@ -3051,6 +3432,28 @@ static int child_init(int rank)
 				rtpengine_dtmf_events_loop();
 			}
 
+			early_return = 1;
+		}
+
+		if(rtpengine_timeout_event_sock.len > 0) {
+			LM_DBG("Register RTPENGINE TIMEOUT WORKER %d\n", getpid());
+			/* fork worker process */
+			mypid = fork_process(PROC_RPC, "RTPENGINE TIMEOUT WORKER", 1);
+			if(mypid < 0) {
+				LM_ERR("failed to fork RTPENGINE TIMEOUT WORKER process %d\n",
+						mypid);
+				return -1;
+			} else if(mypid == 0) {
+				if(cfg_child_init())
+					return -1;
+				/* this will loop forever */
+				rtpengine_timeout_events_loop();
+			}
+
+			early_return = 1;
+		}
+
+		if(early_return ) {
 			return 0;
 		}
 

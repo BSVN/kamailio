@@ -2292,6 +2292,101 @@ modparam("rtpengine", "dtmf_event", "$avp(dtmf_event)")
 		</example>
 	</section>
 
+
+	<section id="rtpengine.p.timeout_event_callid">
+		<title><varname>timeout_event_callid</varname> (string)</title>
+		<para>
+			The name of a pseudovariable to be filled in with the callid of the triggered timeout event.
+		</para>
+		<para>
+			By default, this parameter is not set.
+		</para>
+		<example>
+		<title>Set <varname>timeout_event_callid</varname> parameter</title>
+<programlisting format="linespecific">
+...
+modparam("rtpengine", "timeout_event_callid", "$avp(timeout_event_callid)")
+...
+</programlisting>
+		</example>
+	</section>
+
+
+	<section id="rtpengine.p.timeout_event_src_tag">
+		<title><varname>timeout_event_src_tag</varname> (string)</title>
+		<para>
+			The name of a pseudovariable to be filled in with the source tag for 
+			the packet stream that triggered the timeout event.
+		</para>
+		<para>
+			By default, this parameter is not set.
+		</para>
+		<example>
+		<title>Set <varname>timeout_event_src_tag</varname> parameter</title>
+<programlisting format="linespecific">
+...
+modparam("rtpengine", "timeout_event_src_tag", "$avp(timeout_event_src_tag)")
+...
+</programlisting>
+		</example>
+	</section>
+
+	<section id="rtpengine.p.timeout_event_dst_tags">
+		<title><varname>timeout_event_dst_tags</varname> (string)</title>
+		<para>
+			The name of a pseudovariable to be filled in with the destination tags
+			for the packet stream that triggered the timeout event.
+		</para>
+		<para>
+			By default, this parameter is not set.
+		</para>
+		<example>
+		<title>Set <varname>timeout_event_dst_tags</varname> parameter</title>
+<programlisting format="linespecific">
+...
+modparam("rtpengine", "timeout_event_dst_tags", "$avp(timeout_event_dst_tags)")
+...
+</programlisting>
+		</example>
+	</section>
+
+	<section id="rtpengine.p.timeout_event_source_ip">
+		<title><varname>timeout_event_source_ip</varname> (string)</title>
+		<para>
+			The name of a pseudovariable to be filled in with the source ip of the packet stream
+			that triggered the timeout event.
+		</para>
+		<para>
+			By default, this parameter is not set.
+		</para>
+		<example>
+		<title>Set <varname>timeout_event_source_ip</varname> parameter</title>
+<programlisting format="linespecific">
+...
+modparam("rtpengine", "timeout_event_source_ip", "$avp(timeout_event_source_ip)")
+...
+</programlisting>
+		</example>
+	</section>
+
+	<section id="rtpengine.p.timeout_event_timestamp">
+		<title><varname>timeout_event_timestamp</varname> (string)</title>
+		<para>
+			The name of a pseudovariable to be filled in with the timestamp when the timeout event triggered.
+		</para>
+		<para>
+			By default, this parameter is not set.
+		</para>
+		<example>
+		<title>Set <varname>timeout_event_timestamp</varname> parameter</title>
+<programlisting format="linespecific">
+...
+modparam("rtpengine", "timeout_event_timestamp", "$avp(timeout_event_timestamp)")
+...
+</programlisting>
+		</example>
+	</section>
+
 	<section id="rtpengine.p.control_cmd_tos">
 		<title><varname>control_cmd_tos</varname> (integer)</title>
 		<para>
@@ -2375,6 +2470,29 @@ modparam("rtpengine", "wsapi", "lwsc")
 		<programlisting format="linespecific">
 ...
 modparam("rtpengine", "dtmf_events_sock", "127.0.0.1:2223")
+...
+</programlisting>
+		</example>
+	</section>
+
+	<section id="rtpengine.p.timeout_events_sock" xreflabel="timeout_events_sock">
+		<title><varname>timeout_events_sock</varname> (string)</title>
+		<para>
+		Definition of IPv4/IPv6 UDP socket used to receive timeout warnings from RTPEngine.
+		</para>
+		<para>
+		Timeout warnings coming from RTPEngine will trigger rtpengine:timeout-event route.
+		</para>
+		<para>
+			<emphasis>
+				Default value is <quote>NONE</quote> (disabled).
+			</emphasis>
+		</para>
+		<example>
+		<title>Set <varname>timeout_events_sock</varname> parameter</title>
+		<programlisting format="linespecific">
+...
+modparam("rtpengine", "timeout_events_sock", "127.0.0.1:2228")
 ...
 </programlisting>
 		</example>
