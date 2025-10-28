@@ -383,6 +383,7 @@ static int w_dlg_get(struct sip_msg *msg, char *ci, char *ft, char *tt)
 	set_current_dialog(msg, dlg);
 	_dlg_ctx.dlg = dlg;
 	_dlg_ctx.dir = dir;
+	dlg_set_ctx_iuid(dlg);
 	return 1;
 }
 
