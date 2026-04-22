@@ -32,6 +32,8 @@
 #include "../../core/parser/contact/parse_contact.h"
 #include "../../core/sr_module.h"
 #include "secfilter.h"
+#include "util.h"
+
 
 /* get 'user-agent' header */
 int secf_get_ua(struct sip_msg *msg, str *ua)

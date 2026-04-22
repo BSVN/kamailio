@@ -460,8 +460,12 @@ static int ki_check_ua(struct sip_msg *msg)
 	return 1;
 }
 
-
 static int w_check_username_from_hdr(struct sip_msg *msg)
+{
+	return check_username(msg, SECF_FROM_HEADER);
+}
+
+static int ki_check_username_from_hdr(struct sip_msg *msg)
 {
 	return check_username(msg, SECF_FROM_HEADER);
 }
@@ -471,7 +475,17 @@ static int w_check_username_to_hdr(struct sip_msg *msg)
 	return check_username(msg, SECF_TO_HEADER);
 }
 
+static int ki_check_username_to_hdr(struct sip_msg *msg)
+{
+	return check_username(msg, SECF_TO_HEADER);
+}
+
 static int w_check_username_contact_hdr(struct sip_msg *msg)
+{
+	return check_username(msg, SECF_CONTACT_HEADER);
+}
+
+static int ki_check_username_contact_hdr(struct sip_msg *msg)
 {
 	return check_username(msg, SECF_CONTACT_HEADER);
 }
@@ -481,7 +495,17 @@ static int w_check_name_from_hdr(struct sip_msg *msg)
 	return check_name(msg, SECF_FROM_HEADER);
 }
 
+static int ki_check_name_from_hdr(struct sip_msg *msg)
+{
+	return check_name(msg, SECF_FROM_HEADER);
+}
+
 static int w_check_name_to_hdr(struct sip_msg *msg)
+{
+	return check_name(msg, SECF_TO_HEADER);
+}
+
+static int ki_check_name_to_hdr(struct sip_msg *msg)
 {
 	return check_name(msg, SECF_TO_HEADER);
 }
@@ -491,7 +515,17 @@ static int w_check_name_contact_hdr(struct sip_msg *msg)
 	return check_name(msg, SECF_CONTACT_HEADER);
 }
 
+static int ki_check_name_contact_hdr(struct sip_msg *msg)
+{
+	return check_name(msg, SECF_CONTACT_HEADER);
+}
+
 static int w_check_domain_from_hdr(struct sip_msg *msg)
+{
+	return check_domain(msg, SECF_FROM_HEADER);
+}
+
+static int ki_check_domain_from_hdr(struct sip_msg *msg)
 {
 	return check_domain(msg, SECF_FROM_HEADER);
 }
@@ -501,7 +535,17 @@ static int w_check_domain_to_hdr(struct sip_msg *msg)
 	return check_domain(msg, SECF_TO_HEADER);
 }
 
+static int ki_check_domain_to_hdr(struct sip_msg *msg)
+{
+	return check_domain(msg, SECF_TO_HEADER);
+}
+
 static int w_check_domain_contact_hdr(struct sip_msg *msg)
+{
+	return check_domain(msg, SECF_CONTACT_HEADER);
+}
+
+static int ki_check_domain_contact_hdr(struct sip_msg *msg)
 {
 	return check_domain(msg, SECF_CONTACT_HEADER);
 }
@@ -1349,8 +1393,38 @@ static sr_kemi_t sr_kemi_secfilter_exports[] = {
 		{ SR_KEMIP_STR, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
 			SR_KEMIP_NONE, SR_KEMIP_NONE}
 	},
-	{ str_init("secfilter"), str_init("secf_check_from_hdr"),
+	{ str_init("secfilter"), str_init("secf_check_from_hdr"),    //////////////
 		SR_KEMIP_INT, ki_check_from_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+	{ str_init("secfilter"), str_init("secf_check_from_hdr"),    //////////////
+		SR_KEMIP_INT, ki_check_username_from_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+		{ str_init("secfilter"), str_init("secf_check_from_hdr"),    //////////////
+		SR_KEMIP_INT, ki_check_name_from_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+		{ str_init("secfilter"), str_init("secf_check_from_hdr"),    //////////////
+		SR_KEMIP_INT, ki_check_domain_from_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+	{ str_init("secfilter"), str_init("secf_check_to_hdr"),
+		SR_KEMIP_INT, ki_check_username_to_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+	{ str_init("secfilter"), str_init("secf_check_to_hdr"),
+		SR_KEMIP_INT, ki_check_name_to_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+	{ str_init("secfilter"), str_init("secf_check_to_hdr"),
+		SR_KEMIP_INT, ki_check_domain_to_hdr,
 		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
 			SR_KEMIP_NONE, SR_KEMIP_NONE}
 	},
@@ -1361,6 +1435,21 @@ static sr_kemi_t sr_kemi_secfilter_exports[] = {
 	},
 	{ str_init("secfilter"), str_init("secf_check_contact_hdr"),
 		SR_KEMIP_INT, ki_check_contact_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+	{ str_init("secfilter"), str_init("secf_check_contact_hdr"),
+		SR_KEMIP_INT, ki_check_username_contact_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+	{ str_init("secfilter"), str_init("secf_check_contact_hdr"),
+		SR_KEMIP_INT, ki_check_name_contact_hdr,
+		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
+			SR_KEMIP_NONE, SR_KEMIP_NONE}
+	},
+	{ str_init("secfilter"), str_init("secf_check_contact_hdr"),
+		SR_KEMIP_INT, ki_check_domain_contact_hdr,
 		{ SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE, SR_KEMIP_NONE,
 			SR_KEMIP_NONE, SR_KEMIP_NONE}
 	},
@@ -1376,8 +1465,8 @@ static sr_kemi_t sr_kemi_secfilter_exports[] = {
 	},
 	{ {0, 0}, {0, 0}, 0, NULL, {0, 0, 0, 0, 0, 0} }
 };
-/* clang-format on */
 
+/* clang-format on */
 /**
  *
  */
