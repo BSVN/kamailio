@@ -34,7 +34,6 @@
 #include "../../core/locking.h"
 #include "secfilter.h"
 #include "../../core/kemi.h"
-#include "util.h"
 
 MODULE_VERSION 
 
