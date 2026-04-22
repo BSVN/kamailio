@@ -109,7 +109,6 @@ int secf_get_from(struct sip_msg *msg, str *name, str *user, str *domain)
 	return 0;
 }
 
-
 /* get 'to' header */
 int secf_get_to(struct sip_msg *msg, str *name, str *user, str *domain)
 {
@@ -163,57 +162,61 @@ int secf_get_to(struct sip_msg *msg, str *name, str *user, str *domain)
 	return 0;
 }
 
+/* get 'contact' header with name*/
+int secf_get_contact_with_name(struct sip_msg *msg, str *name, str *user, str *domain)
+{
+    struct sip_uri uri;
+    contact_t *contact;
 
-// /* get 'contact' header with name*/
-// int secf_get_contact_with_name(struct sip_msg *msg, str *name, str *user, str *domain)
-// {
-// 	struct sip_uri uri;
-// 	contact_t *contact;
+    if(msg == NULL) {
+        LM_DBG("SIP msg is empty\n");
+        return -1;
+    }
 
-// 	if(msg == NULL) {
-// 		LM_DBG("SIP msg is empty\n");
-// 		return -1;
-// 	}
-// 	if((parse_headers(msg, HDR_CONTACT_F, 0) == -1) || !msg->contact) {
-// 		LM_DBG("cannot get the Contact header from the SIP message\n");
-// 		return 1;
-// 	}
+    LM_DBG("starting to parse Contact header from SIP message\n");
 
+    if((parse_headers(msg, HDR_CONTACT_F, 0) == -1) || !msg->contact) {
+        LM_DBG("cannot get the Contact header from the SIP message\n");
+        return 1;
+    }
 
-	
-// 	if(!msg->contact->parsed && parse_contact(msg->contact) < 0) {
-// 		LM_DBG("cannot parse the Contact header\n");
-// 		return 1;
-// 	}
+    if(!msg->contact->parsed && parse_contact(msg->contact) < 0) {
+        LM_DBG("cannot parse the Contact header\n");
+        return 1;
+    }
 
-// 	contact = ((contact_body_t *)msg->contact->parsed)->contacts;
-// 	if(!contact) {
-// 		LM_DBG("cannot parse the Contact header\n");
-// 		return 1;
-// 	}
+    contact = ((contact_body_t *)msg->contact->parsed)->contacts;
+    if(!contact) {
+        LM_DBG("no contacts found in the parsed header\n");
+        return 1;
+    }
 
-// 	if(parse_uri(contact->uri.s, contact->uri.len, &uri) < 0) {
-// 		LM_DBG("cannot parse the Contact URI\n");
-// 		return 1;
-// 	}
+	if(parse_name(contact->name.s, contact->name.len, name) < 0) {
+        LM_DBG("proceeding without Display Name\n");
+		return 1;
+    }
 
-// 	if(uri.user.s == NULL) {
-// 		LM_DBG("cannot parse the Contact User\n");
-// 		return 1;
-// 	}
-// 	user->s = uri.user.s;
-// 	user->len = uri.user.len;
+    if(parse_uri(contact->uri.s, contact->uri.len, &uri) < 0) {
+        LM_DBG("cannot parse the Contact URI\n");
+        return 1;
+    }
 
-// 	if(uri.host.s == NULL) {
-// 		LM_DBG("cannot parse the Contact Domain\n");
-// 		return 1;
-// 	}
-// 	domain->s = uri.host.s;
-// 	domain->len = uri.host.len;
+    if(uri.user.s == NULL) {
+        LM_DBG("cannot parse the Contact User\n");
+        return 1;
+    }
+    user->s = uri.user.s;
+    user->len = uri.user.len;
 
-// 	return 0;
-// }
+    if(uri.host.s == NULL) {
+        LM_DBG("cannot parse the Contact Domain\n");
+        return 1;
+    }
+    domain->s = uri.host.s;
+    domain->len = uri.host.len;
 
+    return 0;
+}
 
 /* get 'contact' header */
 int secf_get_contact(struct sip_msg *msg, str *user, str *domain)

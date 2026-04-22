@@ -34,8 +34,9 @@
 #include "../../core/locking.h"
 #include "secfilter.h"
 #include "../../core/kemi.h"
+#include "util.h"
 
-MODULE_VERSION
+MODULE_VERSION 
 
 secf_data_p *secf_data = NULL;
 secf_data_p secf_data_1 = NULL;
@@ -552,13 +553,12 @@ static int check_generic(struct sip_msg *msg, struct str_list *list, int type, i
     switch(type) {
         case 1: res = secf_get_from(msg, &name, &user, &domain); break;
         case 2: res = secf_get_to(msg, &name, &user, &domain);   break;
-        case 3: res = secf_get_contact(msg, &user, &domain);    break;
+        case 3: res = secf_get_contact_with_name(msg,&name, &user, &domain);    break;
         default: return -1;
     }
 
     if (res != 0) return res;
 
-	
     switch (field){
 		case SECF_FIELD_NAME:
 			target = &name;
@@ -576,7 +576,7 @@ static int check_generic(struct sip_msg *msg, struct str_list *list, int type, i
 	if (target->s == NULL) return -1;
     original_len = target->len;
 
-    while (list) {
+	while (list) {
         if (target->len > list->s.len)
             target->len = list->s.len;
 
