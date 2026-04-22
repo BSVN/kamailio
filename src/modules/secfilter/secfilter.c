@@ -131,6 +131,8 @@ static param_export_t params[] = {
 	{0, 0, 0}
 };
 
+
+
 /* Module exports definition */
 struct module_exports exports = {
 	"secfilter",     /* module name */
@@ -460,47 +462,47 @@ static int ki_check_ua(struct sip_msg *msg)
 
 static int w_check_username_from_hdr(struct sip_msg *msg)
 {
-	return check_username(msg, 1);
+	return check_username(msg, SECF_FROM_HEADER);
 }
 
 static int w_check_username_to_hdr(struct sip_msg *msg)
 {
-	return check_username(msg, 2);
+	return check_username(msg, SECF_TO_HEADER);
 }
 
 static int w_check_username_contact_hdr(struct sip_msg *msg)
 {
-	return check_username(msg, 3);
+	return check_username(msg, SECF_CONTACT_HEADER);
 }
 
 static int w_check_name_from_hdr(struct sip_msg *msg)
 {
-	return check_name(msg, 1);
+	return check_name(msg, SECF_FROM_HEADER);
 }
 
 static int w_check_name_to_hdr(struct sip_msg *msg)
 {
-	return check_name(msg, 2);
+	return check_name(msg, SECF_TO_HEADER);
 }
 
 static int w_check_name_contact_hdr(struct sip_msg *msg)
 {
-	return check_name(msg, 3);
+	return check_name(msg, SECF_CONTACT_HEADER);
 }
 
 static int w_check_domain_from_hdr(struct sip_msg *msg)
 {
-	return check_domain(msg, 1);
+	return check_domain(msg, SECF_FROM_HEADER);
 }
 
 static int w_check_domain_to_hdr(struct sip_msg *msg)
 {
-	return check_domain(msg, 2);
+	return check_domain(msg, SECF_TO_HEADER);
 }
 
 static int w_check_domain_contact_hdr(struct sip_msg *msg)
 {
-	return check_domain(msg, 3);
+	return check_domain(msg, SECF_CONTACT_HEADER);
 }
 
 static int w_check_ua(struct sip_msg *msg)
@@ -541,20 +543,6 @@ static int w_check_contact_hdr(struct sip_msg *msg)
 	return check_user(msg, 3);
 }
 
-/*
-Check if the current user is allowed
-
-Return codes:
- 4 = name whitelisted
- 3 = domain whitelisted
- 2 = user whitelisted
- 1 = not found
--1 = error
--2 = user blacklisted
--3 = domain blacklisted
--4 = name blacklisted
-*/
-
 
 static int check_generic(struct sip_msg *msg, struct str_list *list, int type, int field) {
     str name = STR_NULL, user = STR_NULL, domain = STR_NULL;
@@ -572,13 +560,13 @@ static int check_generic(struct sip_msg *msg, struct str_list *list, int type, i
 
 	
     switch (field){
-		case 1:
+		case SECF_FIELD_NAME:
 			target = &name;
 			break;
-		case 2:
+		case SECF_FIELD_USER:
 			target = &user;
 			break;
-		case 3:
+		case SECF_FIELD_DOMAIN:
 			target = &domain;
 			break;
 		default:
@@ -608,14 +596,7 @@ static int check_generic(struct sip_msg *msg, struct str_list *list, int type, i
 
 
 static int check_username(struct sip_msg *msg, int type) {
-
-	/*
-		name : 1
-		username : 2
-		domain : 3
-	*/
-
-    int field = 2;
+    int field = SECF_FIELD_USER;
     struct str_list *list = NULL;
 	int res = -1;
     // Check Whitelist
@@ -630,13 +611,13 @@ static int check_username(struct sip_msg *msg, int type) {
     if (res == 1) {
         lock_get(secf_lock);
         switch(type) {
-            case 1:
+            case SECF_FROM_HEADER:
                 secf_stats[WL_FUSER]++;
                 break;
-            case 2:
+            case SECF_TO_HEADER:
                 secf_stats[WL_TUSER]++;
                 break;
-            case 3:
+            case SECF_CONTACT_HEADER:
                 secf_stats[WL_CUSER]++;
                 break;
         }
@@ -656,13 +637,13 @@ static int check_username(struct sip_msg *msg, int type) {
     if (res == 1) {
         lock_get(secf_lock);
         switch(type) {
-            case 1:
+            case SECF_FROM_HEADER:
                 secf_stats[BL_FUSER]++;
                 break;
-            case 2:
+            case SECF_TO_HEADER:
                 secf_stats[BL_TUSER]++;
                 break;
-            case 3:
+            case SECF_CONTACT_HEADER:
                 secf_stats[BL_CUSER]++;
                 break;
         }
@@ -675,14 +656,8 @@ static int check_username(struct sip_msg *msg, int type) {
 
 
 static int check_name(struct sip_msg *msg, int type) {
-	
-	/*
-		name : 1
-		username : 2
-		domain : 3
-	*/
 
-    int field = 1;
+    int field = SECF_FIELD_NAME;
     struct str_list *list = NULL;
 	int res = -1;
     // Check Whitelist
@@ -695,13 +670,13 @@ static int check_name(struct sip_msg *msg, int type) {
     if (res == 1) {
         lock_get(secf_lock);
         switch(type) {
-            case 1:
+            case SECF_FROM_HEADER:
                 secf_stats[WL_FNAME]++;
                 break;
-            case 2:
+            case SECF_TO_HEADER:
                 secf_stats[WL_TNAME]++;
                 break;
-            case 3:
+            case SECF_CONTACT_HEADER:
                 secf_stats[WL_CNAME]++;
                 break;
         }
@@ -721,13 +696,13 @@ static int check_name(struct sip_msg *msg, int type) {
     if (res == 1) {
         lock_get(secf_lock);
         switch(type) {
-            case 1:
+            case SECF_FROM_HEADER:
                 secf_stats[BL_FNAME]++;
                 break;
-            case 2:
+            case SECF_TO_HEADER:
                 secf_stats[BL_TNAME]++;
                 break;
-            case 3:
+            case SECF_CONTACT_HEADER:
                 secf_stats[BL_CNAME]++;
                 break;
         }
@@ -741,14 +716,7 @@ static int check_name(struct sip_msg *msg, int type) {
 
 
 static int check_domain(struct sip_msg *msg, int type) {
-
-	/*
-		name : 1
-		username : 2
-		domain : 3
-	*/
-
-	int field = 3;
+	int field = SECF_FIELD_DOMAIN;
     struct str_list *list = NULL;
 	int res = -1;
 
@@ -763,13 +731,13 @@ static int check_domain(struct sip_msg *msg, int type) {
     if (res == 1) {
         lock_get(secf_lock);
         switch(type) {
-            case 1:
+            case SECF_FROM_HEADER:
                 secf_stats[WL_FDOMAIN]++;
                 break;
-            case 2:
+            case SECF_TO_HEADER:
                 secf_stats[WL_TDOMAIN]++;
                 break;
-            case 3:
+            case SECF_CONTACT_HEADER:
                 secf_stats[WL_CDOMAIN]++;
                 break;
         }
@@ -789,13 +757,13 @@ static int check_domain(struct sip_msg *msg, int type) {
     if (res == 1) {
         lock_get(secf_lock);
         switch(type) {
-            case 1:
+            case SECF_FROM_HEADER:
                 secf_stats[BL_FDOMAIN]++;
                 break;
-            case 2:
+            case SECF_TO_HEADER:
                 secf_stats[BL_TDOMAIN]++;
                 break;
-            case 3:
+            case SECF_CONTACT_HEADER:
                 secf_stats[BL_CDOMAIN]++;
                 break;
         }
@@ -805,6 +773,21 @@ static int check_domain(struct sip_msg *msg, int type) {
 
     return 1;
 }
+
+/*
+Check if the current user is allowed
+
+Return codes:
+ 4 = name whitelisted
+ 3 = domain whitelisted
+ 2 = user whitelisted
+ 1 = not found
+-1 = error
+-2 = user blacklisted
+-3 = domain blacklisted
+-4 = name blacklisted
+*/
+
 
 static int check_user(struct sip_msg *msg, int type)
 {
